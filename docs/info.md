@@ -13,7 +13,7 @@ Just a binary adder, I hope this doesn't get submitted
 
 ## How to test
 
-:)
+:)  Test est est
 
 ## External hardware
 
