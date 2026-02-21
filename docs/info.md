@@ -9,12 +9,12 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-Explain how your project works
+Just a binary adder, I hope this doesn't get submitted
 
 ## How to test
 
-Explain how to use your project
+:)
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+Assumed a 7 segment display but didnt make use of it.
