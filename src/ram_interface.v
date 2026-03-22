@@ -12,7 +12,7 @@ module ram_interface #(
     input wire [2:0] cs_wait_cycles,
     input wire [1:0] spi_clk_div,    // 0=div2, 1=div4, 2=div8 (default), 3=div16
 
-    input wire [ADDR_WIDTH-1:0] addr,  // must be stable during transfer
+    input wire [ADDR_WIDTH-1:0] addr,  // must be stable during SPI transfer
     input wire start_read,
     input wire inc,
     input wire dec,
@@ -34,7 +34,6 @@ module ram_interface #(
     wire spi_processing;
     reg spi_start;
     wire [31:0] spi_rx_data;
-    wire spi_ready;
     reg [7:0] write_byte;
 
     assign weight = spi_rx_data[7:0];
@@ -77,8 +76,7 @@ module ram_interface #(
         .data_word_send(spi_tx_data),
         .INPUT_SIGNAL(spi_miso),
         .data_word_recv(spi_rx_data),
-        .do_reset(spi_reset),
-        .is_ready(spi_ready)
+        .do_reset(spi_reset)
     );
 
     wire [15:0] full_addr = {{(16-ADDR_WIDTH){1'b0}}, addr};
@@ -109,7 +107,7 @@ module ram_interface #(
                 STATE_IDLE: begin
                     spi_start  <= 1'b0;
 
-                    if (wait_counter == 0 && spi_ready && !spi_processing) begin
+                    if (wait_counter == 0 && !spi_processing) begin
                         if (start_read) begin
                             is_write    <= 1'b0;
                             read_valid  <= 1'b0;

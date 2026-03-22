@@ -25,11 +25,9 @@ module spi_module #(
     input wire [SPI_WORD_LEN - 1:0] data_word_send,
     input wire INPUT_SIGNAL,
     output wire [SPI_WORD_LEN - 1:0] data_word_recv,
-    input wire do_reset,
-    output wire is_ready
+    input wire do_reset
 );
 
-    reg is_ready_reg;
     reg activate_ss;
     reg activate_sclk;
     reg status_ignore_first_edge;
@@ -41,7 +39,6 @@ module spi_module #(
     reg [$clog2(SPI_WORD_LEN)-1:0] bit_counter;
     reg [`SPI_MODULE_COMMAND_LEN - 1:0] spi_status;
 
-    assign is_ready = is_ready_reg;
     assign data_word_recv = data_word_recv_reg;
     assign processing_word = (spi_status != `SPI_STATUS_IDLE);
 
@@ -78,7 +75,6 @@ module spi_module #(
             bit_counter <= INVERT_DATA_ORDER ? 0 : (SPI_WORD_LEN - 1);
             status_ignore_first_edge <= 1'b0;
             spi_status <= `SPI_STATUS_IDLE;
-            is_ready_reg <= 1'b1;
         end else begin
             case (spi_status)
                 `SPI_STATUS_IDLE: begin
@@ -99,7 +95,7 @@ module spi_module #(
                             if (CPHA && !status_ignore_first_edge)
                                 status_ignore_first_edge <= 1'b1;
                             else begin
-                                if (bit_counter == (INVERT_DATA_ORDER ? (SPI_WORD_LEN - 1) : 'sd0)) begin
+                                if (bit_counter == (INVERT_DATA_ORDER ? (SPI_WORD_LEN - 1) : 0)) begin
                                     activate_ss <= 1'b0;
                                     activate_sclk <= 1'b0;
                                     bit_counter <= INVERT_DATA_ORDER ? 0 : (SPI_WORD_LEN - 1);

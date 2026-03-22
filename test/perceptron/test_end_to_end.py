@@ -4,7 +4,7 @@ import os
 import cocotb
 from cocotb.triggers import Timer, ClockCycles
 import random
-from perceptron.helpers import start_clocks, OP_RESP_VALID
+from perceptron.helpers import start_clocks, OP_RESP_VALID, MAX_WEIGHTS, INDEX_WIDTH
 
 TRACE_PATH = os.path.join(os.path.dirname(__file__), "data", "trace.txt")
 MAX_BRANCHES = 100
@@ -60,12 +60,12 @@ async def test_end_to_end_3clk(dut):
     for pc, outcome in trace:
         total += 1
 
-        idx0 = (pc ^ (pc >> 8)) & 0x3FF
-        idx1 = (pc ^ (pc >> 4)) & 0x3FF
-        idx2 = (pc ^ history) & 0x3FF
-        idx3 = (pc ^ (history >> 4)) & 0x3FF
+        # Generate MAX_WEIGHTS hash indices from PC and history
+        indices = []
+        for h in range(MAX_WEIGHTS):
+            indices.append((pc ^ (pc >> (4 * h)) ^ (history >> (2 * h))) & ((1 << INDEX_WIDTH) - 1))
 
-        for idx in [idx0, idx1, idx2, idx3]:
+        for idx in indices:
             await spi.cmd_add_weight(idx)
 
         opcode, valid_bit, sum_signed = await spi.cmd_read_poll()

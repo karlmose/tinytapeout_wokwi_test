@@ -3,7 +3,9 @@
 `default_nettype none
 `timescale 1ns/1ps
 
-module pred_slave_spi (
+module pred_slave_spi #(
+    parameter ADDR_WIDTH = 10
+) (
     input wire clk,
     input wire rst_n,
 
@@ -19,7 +21,7 @@ module pred_slave_spi (
     output wire add_weight_cmd,
     output wire update_weight_cmd,
     output wire reset_buffer_cmd,
-    output wire [8:0] index,
+    output wire [ADDR_WIDTH-1:0] index,
     output reg update_sign,
 
     output reg [2:0] cs_wait_cfg,
@@ -30,7 +32,6 @@ module pred_slave_spi (
     wire spi_start_next = 1'b1;
     wire [15:0] spi_data_recv;
     reg [15:0] spi_data_send;
-    wire spi_ready;
     reg spi_reset;
 
     reg [1:0] sck_sync, scs_sync, mosi_sync;
@@ -68,8 +69,7 @@ module pred_slave_spi (
         .data_word_send(spi_data_send),
         .INPUT_SIGNAL(mosi_synced),
         .data_word_recv(spi_data_recv),
-        .do_reset(spi_reset),
-        .is_ready(spi_ready)
+        .do_reset(spi_reset)
     );
 
     reg prev_processing;
@@ -88,7 +88,7 @@ module pred_slave_spi (
     reg word_done;
     wire [3:0] opcode = spi_data_recv[15:12];
 
-    assign index       = spi_data_recv[8:0];
+    assign index       = spi_data_recv[ADDR_WIDTH-1:0];
 
     assign add_weight_cmd    = word_done && (opcode == OP_ADD);
     assign update_weight_cmd = word_done && (opcode == OP_UPDATE);

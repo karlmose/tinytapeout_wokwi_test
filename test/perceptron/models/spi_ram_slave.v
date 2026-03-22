@@ -20,7 +20,6 @@ module spi_ram_slave #(
     wire spi_processing;
     reg [7:0] spi_data_send;
     wire [7:0] spi_data_recv;
-    wire spi_ready;
     reg spi_reset;
 
     localparam CMD_READ  = 8'h03;
@@ -53,8 +52,7 @@ module spi_ram_slave #(
         .data_word_send(spi_data_send),
         .INPUT_SIGNAL(mosi),
         .data_word_recv(spi_data_recv),
-        .do_reset(spi_reset),
-        .is_ready(spi_ready)
+        .do_reset(spi_reset)
     );
 
     reg [2:0] byte_cnt;

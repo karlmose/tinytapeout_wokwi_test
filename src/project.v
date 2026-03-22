@@ -1,4 +1,5 @@
 `default_nettype none
+`timescale 1ns/1ps
 
 module tt_um_tinyperceptron_karlmose (
     input  wire [7:0] ui_in,
@@ -34,14 +35,14 @@ module tt_um_tinyperceptron_karlmose (
   end
   wire ram_miso_synced = ram_miso_sync[1];
 
-  localparam INDEX_WIDTH  = 9;
+  localparam INDEX_WIDTH  = 10;
   localparam MAX_WEIGHTS  = 8;
   localparam RAM_ADDR_WIDTH = INDEX_WIDTH + $clog2(MAX_WEIGHTS);
 
   wire        cmd_add_weight;
   wire        cmd_update;
   wire        cmd_reset_buf;
-  wire [8:0]  cmd_index;
+  wire [INDEX_WIDTH-1:0]  cmd_index;
   wire        cmd_update_sign;
   wire [2:0]  cfg_cs_wait_cfg;
   wire [1:0]  cfg_spi_clk_div;
@@ -59,7 +60,7 @@ module tt_um_tinyperceptron_karlmose (
   wire        perc_valid;
   wire        perc_update_done;
 
-  pred_slave_spi slave (
+  pred_slave_spi #(.ADDR_WIDTH(INDEX_WIDTH)) slave (
       .clk(clk),
       .rst_n(rst_n),
       .sck(slave_sck_ext),

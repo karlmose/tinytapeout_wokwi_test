@@ -13,10 +13,26 @@ OP_RESP_VALID       = 0x1
 OP_RESP_INVALID     = 0x2
 OP_RESP_UPDATE_DONE = 0x3
 
-# Must match project.v localparams
-INDEX_WIDTH  = 9
-MAX_WEIGHTS  = 4
-SLOT_WIDTH   = (MAX_WEIGHTS - 1).bit_length()  # $clog2(MAX_WEIGHTS)
+def _read_project_params():
+    """Extract localparams from project.v so tests stay in sync with RTL."""
+    import re, os
+    proj = os.path.join(os.path.dirname(__file__), "..", "..", "src", "project.v")
+    params = {}
+    with open(proj) as f:
+        for line in f:
+            m = re.search(r'localparam\s+(\w+)\s*=\s*(\d+)', line)
+            if m:
+                params[m.group(1)] = int(m.group(2))
+    for key in ("INDEX_WIDTH", "MAX_WEIGHTS"):
+        if key not in params:
+            raise RuntimeError(f"{key} not found in project.v")
+    return params
+
+
+_params        = _read_project_params()
+INDEX_WIDTH    = _params["INDEX_WIDTH"]
+MAX_WEIGHTS    = _params["MAX_WEIGHTS"]
+SLOT_WIDTH     = (MAX_WEIGHTS - 1).bit_length()  # $clog2(MAX_WEIGHTS)
 RAM_ADDR_WIDTH = INDEX_WIDTH + SLOT_WIDTH
 
 

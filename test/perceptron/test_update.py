@@ -11,6 +11,7 @@ import cocotb
 from perceptron.helpers import (
     start_clocks,
     set_ram, get_ram, ram_addr, to_signed_8, to_unsigned_8,
+    MAX_WEIGHTS,
 )
 
 
@@ -96,12 +97,13 @@ async def test_update_decrement(dut):
 
 
 @cocotb.test()
-async def test_update_all_four_weights(dut):
-    """Load 4 weights, increment, verify all 4 RAM cells updated."""
+async def test_update_all_weights(dut):
+    """Load MAX_WEIGHTS weights, increment, verify all RAM cells updated."""
     spi = await start_clocks(dut)
 
-    initial = [10, -20, 30, -40]
-    indices = [0x10, 0x20, 0x30, 0x40]
+    # Alternate positive/negative, staying well within [-128, 127]
+    initial = [10 * ((-1) ** i) * (i + 1) for i in range(MAX_WEIGHTS)]
+    indices = [0x10 * (i + 1) for i in range(MAX_WEIGHTS)]
 
     for slot, (idx, w) in enumerate(zip(indices, initial)):
         set_ram(dut, ram_addr(slot, idx), to_unsigned_8(w))
