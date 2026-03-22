@@ -19,7 +19,7 @@ module pred_slave_spi (
     output wire add_weight_cmd,
     output wire update_weight_cmd,
     output wire reset_buffer_cmd,
-    output reg [8:0] index,
+    output wire [8:0] index,
     output reg update_sign,
 
     output reg [2:0] cs_wait_cfg,
@@ -88,6 +88,8 @@ module pred_slave_spi (
     reg word_done;
     wire [3:0] opcode = spi_data_recv[15:12];
 
+    assign index       = spi_data_recv[8:0];
+
     assign add_weight_cmd    = word_done && (opcode == OP_ADD);
     assign update_weight_cmd = word_done && (opcode == OP_UPDATE);
     assign reset_buffer_cmd  = word_done && (opcode == OP_RESET_BUF);
@@ -100,7 +102,6 @@ module pred_slave_spi (
             spi_reset           <= 1'b1;
             spi_data_send       <= 16'd0;
             prev_processing     <= 1'b0;
-            index               <= 9'd0;
             update_sign         <= 1'b0;
             cs_wait_cfg         <= 3'd3;
             spi_clk_div         <= 2'd2;   // div-by-8 default
@@ -118,12 +119,10 @@ module pred_slave_spi (
             if (prev_processing && !spi_processing) begin
                 case (spi_data_recv[15:12])
                     OP_ADD: begin
-                        index <= spi_data_recv[8:0];
                         spi_data_send <= {spi_data_recv[15:12], 12'd0};
                         update_done_flag <= 1'b0;
                     end
                     OP_UPDATE: begin
-                        index <= spi_data_recv[8:0];
                         update_sign <= spi_data_recv[0];
                         spi_data_send <= {spi_data_recv[15:12], 12'd0};
                         update_done_flag <= 1'b0;

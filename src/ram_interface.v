@@ -12,7 +12,7 @@ module ram_interface #(
     input wire [2:0] cs_wait_cycles,
     input wire [1:0] spi_clk_div,    // 0=div2, 1=div4, 2=div8 (default), 3=div16
 
-    input wire [ADDR_WIDTH-1:0] addr,
+    input wire [ADDR_WIDTH-1:0] addr,  // must be stable during transfer
     input wire start_read,
     input wire inc,
     input wire dec,
@@ -33,9 +33,9 @@ module ram_interface #(
     wire sclk_divided;
     wire spi_processing;
     reg spi_start;
-    reg [31:0] spi_tx_data;
     wire [31:0] spi_rx_data;
     wire spi_ready;
+    reg [7:0] write_byte;
 
     assign weight = spi_rx_data[7:0];
 
@@ -82,15 +82,15 @@ module ram_interface #(
     );
 
     wire [15:0] full_addr = {{(16-ADDR_WIDTH){1'b0}}, addr};
-    localparam CMD_READ  = 8'h03;
-    localparam CMD_WRITE = 8'h02;
+    wire [31:0] spi_tx_data = {7'b0000_001, ~is_write, full_addr,
+                               is_write ? write_byte : 8'h00};
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state         <= STATE_IDLE;
             wait_counter  <= 6'd0;
             spi_start     <= 1'b0;
-            spi_tx_data   <= 32'd0;
+            write_byte    <= 8'd0;
             is_write      <= 1'b0;
             read_valid    <= 1'b0;
             write_done    <= 1'b0;
@@ -114,20 +114,18 @@ module ram_interface #(
                             is_write    <= 1'b0;
                             read_valid  <= 1'b0;
                             write_done  <= 1'b0;
-                            spi_tx_data <= {CMD_READ, full_addr, 8'h00};
                             spi_start   <= 1'b1;
                             state       <= STATE_START_SPI;
                         end else if ((inc || dec) && read_valid) begin
                             is_write    <= 1'b1;
                             read_valid  <= 1'b0;
                             write_done  <= 1'b0;
-                            spi_tx_data <= {CMD_WRITE, full_addr,
+                            write_byte  <=
                                 (inc && !dec && weight != 8'h7F) ? weight + 8'd1 :
                                 (dec && !inc && weight != 8'h80) ? weight - 8'd1 :
-                                weight
-                            };
-                            spi_start <= 1'b1;
-                            state     <= STATE_START_SPI;
+                                weight;
+                            spi_start   <= 1'b1;
+                            state       <= STATE_START_SPI;
                         end
                     end
                 end
