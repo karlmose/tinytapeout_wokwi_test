@@ -1,40 +1,27 @@
-# SPDX-FileCopyrightText: © 2024 Tiny Tapeout
+# SPDX-FileCopyrightText: 2024 Tiny Tapeout
 # SPDX-License-Identifier: Apache-2.0
 
+"""Main test module — imports all test suites so cocotb discovers them."""
+
 import cocotb
-from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles
+from perceptron.helpers import start_clocks, OP_RESP_INVALID
+
+# Import all test modules so their @cocotb.test() functions are registered
+from perceptron.test_prediction import *    # noqa: F401,F403
+from perceptron.test_update import *        # noqa: F401,F403
+from perceptron.test_config import *        # noqa: F401,F403
+from perceptron.test_spi_edge_cases import *  # noqa: F401,F403
+from perceptron.test_end_to_end import *    # noqa: F401,F403
 
 
 @cocotb.test()
-async def test_project(dut):
-    dut._log.info("Start")
+async def test_spi_smoke(dut):
+    """Send OP_READ with no weights loaded — expect OP_RESP_INVALID."""
+    spi = await start_clocks(dut)
 
-    # Set the clock period to 10 us (100 KHz)
-    clock = Clock(dut.clk, 10, unit="us")
-    cocotb.start_soon(clock.start())
+    resp = await spi.cmd_read_raw()
 
-    # Reset
-    dut._log.info("Reset")
-    dut.ena.value = 1
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 10)
-    dut.rst_n.value = 1
-
-    dut._log.info("Test project behavior")
-
-    # Set the input values you want to test
-    dut.ui_in.value = 20
-    dut.uio_in.value = 30
-
-    # Wait for one clock cycle to see the output values
-    await ClockCycles(dut.clk, 1)
-
-    # The following assersion is just an example of how to check the output values.
-    # Change it to match the actual expected output of your module:
-    assert dut.uo_out.value == 50
-
-    # Keep testing the module by changing the input values, waiting for
-    # one or more clock cycles, and asserting the expected output values.
+    opcode = (resp >> 12) & 0xF
+    dut._log.info(f"OP_READ response: {resp:#06x}, opcode={opcode:#x}")
+    assert opcode == OP_RESP_INVALID, \
+        f"Expected OP_RESP_INVALID ({OP_RESP_INVALID:#x}), got {opcode:#x}"

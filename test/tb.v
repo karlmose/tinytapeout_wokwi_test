@@ -1,38 +1,69 @@
 `default_nettype none
-`timescale 1ns / 1ps
+`timescale 1ns/1ps
 
-/* This testbench just instantiates the module and makes some convenient wires
-   that can be driven / tested by the cocotb test.py.
-*/
 module tb ();
 
-  // Dump the signals to a FST file. You can view it with gtkwave or surfer.
   initial begin
     $dumpfile("tb.fst");
     $dumpvars(0, tb);
     #1;
   end
 
-  // Wire up the inputs and outputs:
   reg clk;
   reg rst_n;
-  reg ena;
+  wire ena;
   reg [7:0] ui_in;
   reg [7:0] uio_in;
   wire [7:0] uo_out;
   wire [7:0] uio_out;
   wire [7:0] uio_oe;
 
-  // Replace tt_um_example with your module name:
-  tt_um_example user_project (
-      .ui_in  (ui_in),    // Dedicated inputs
-      .uo_out (uo_out),   // Dedicated outputs
-      .uio_in (uio_in),   // IOs: Input path
-      .uio_out(uio_out),  // IOs: Output path
-      .uio_oe (uio_oe),   // IOs: Enable path (active high: 0=input, 1=output)
-      .ena    (ena),      // enable - goes high when design is selected
-      .clk    (clk),      // clock
-      .rst_n  (rst_n)     // not reset
+  // Signals matching tb_wrapper interface for cocotb tests
+  reg slave_sck_ext;
+  reg slave_scs_ext;
+  reg slave_mosi_ext;
+  wire slave_miso;
+  reg ram_slave_clk;
+
+  // Map external SPI signals into ui_in
+  // ui_in[0] = slave_sck_ext, ui_in[1] = slave_scs_ext,
+  // ui_in[2] = slave_mosi_ext, rest = 0
+  always @(*) begin
+    ui_in = {4'b0000, 1'b0, slave_mosi_ext, slave_scs_ext, slave_sck_ext};
+  end
+
+  assign slave_miso = uo_out[0];
+
+  // RAM SPI signals from uio_out
+  wire ram_spi_cs   = uio_out[0];
+  wire ram_spi_mosi = uio_out[1];
+  wire ram_spi_sck  = uio_out[3];
+  wire ram_spi_miso;
+
+  always @(*) begin
+    uio_in = {5'b00000, ram_spi_miso, 2'b00};
+  end
+
+  assign ena = 1'b1;
+
+  tt_um_tinyperceptron_karlmose user_project (
+    .ui_in  (ui_in),
+    .uo_out (uo_out),
+    .uio_in (uio_in),
+    .uio_out(uio_out),
+    .uio_oe (uio_oe),
+    .ena    (ena),
+    .clk    (clk),
+    .rst_n  (rst_n)
+  );
+
+  spi_ram_slave ram_slave (
+    .clk(ram_slave_clk),
+    .rst_n(rst_n),
+    .sck(ram_spi_sck),
+    .scs(ram_spi_cs),
+    .mosi(ram_spi_mosi),
+    .miso(ram_spi_miso)
   );
 
 endmodule
