@@ -35,7 +35,7 @@ module tt_um_tinyperceptron_karlmose (
   wire ram_miso_synced = ram_miso_sync[1];
 
   localparam INDEX_WIDTH  = 9;
-  localparam MAX_WEIGHTS  = 6;
+  localparam MAX_WEIGHTS  = 8;
   localparam RAM_ADDR_WIDTH = INDEX_WIDTH + $clog2(MAX_WEIGHTS);
 
   wire        cmd_add_weight;
