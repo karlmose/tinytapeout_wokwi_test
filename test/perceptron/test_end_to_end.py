@@ -7,7 +7,7 @@ import random
 from perceptron.helpers import start_clocks, OP_RESP_VALID, MAX_WEIGHTS, INDEX_WIDTH
 
 TRACE_PATH = os.path.join(os.path.dirname(__file__), "data", "trace.txt")
-MAX_BRANCHES = 1000
+MAX_BRANCHES = 200
 
 
 def load_trace(path, limit=MAX_BRANCHES):
