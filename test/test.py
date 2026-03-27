@@ -12,6 +12,7 @@ from perceptron.test_update import *        # noqa: F401,F403
 from perceptron.test_config import *        # noqa: F401,F403
 from perceptron.test_spi_edge_cases import *  # noqa: F401,F403
 from perceptron.test_end_to_end import *    # noqa: F401,F403
+from perceptron.test_gls_cdc import *       # noqa: F401,F403
 
 
 @cocotb.test()

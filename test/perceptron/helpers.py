@@ -113,7 +113,7 @@ class SpiMasterDriver:
         word = (OP_SET_CLK_DIV << 12) | (val_2bit & 0x3)
         await self.send_word(word)
 
-async def start_clocks(dut, sys_period_ns=10, ram_period_ns=10, spi_half_ns=200):
+async def start_clocks(dut, sys_period_ns=20, ram_period_ns=10, spi_half_ns=200):
     cocotb.start_soon(Clock(dut.clk, sys_period_ns, unit="ns").start())
     cocotb.start_soon(Clock(dut.ram_slave_clk, ram_period_ns, unit="ns").start())
 

@@ -231,3 +231,146 @@ async def test_multi_cycle_predict_update(dut):
 
     val = get_ram(dut, ram_addr(0, 0x77))
     assert to_signed_8(val) == 11, f"Final weight expected 11, got {to_signed_8(val)}"
+
+
+@cocotb.test()
+async def test_multi_cycle_all_weights(dut):
+    """Four predict-update cycles using all MAX_WEIGHTS weights."""
+    spi = await start_clocks(dut)
+
+    indices = [0x10 * (i + 1) for i in range(MAX_WEIGHTS)]
+    initial = [5, -3, 10, -7, 2, -1, 8, -4][:MAX_WEIGHTS]
+
+    for slot, (idx, w) in enumerate(zip(indices, initial)):
+        set_ram(dut, ram_addr(slot, idx), to_unsigned_8(w))
+
+    weights = list(initial)
+
+    # Cycle 1: predict, then increment all
+    for idx in indices:
+        await spi.cmd_add_weight(idx)
+    opcode, valid, sum_val = await spi.cmd_read_poll()
+    assert opcode == 0x1 and valid == 1
+    assert sum_val == sum(weights), f"Cycle 1: expected {sum(weights)}, got {sum_val}"
+    await spi.cmd_update_and_wait(sign=1)
+    weights = [w + 1 for w in weights]
+
+    # Cycle 2: predict with updated weights, then decrement all
+    for idx in indices:
+        await spi.cmd_add_weight(idx)
+    opcode, valid, sum_val = await spi.cmd_read_poll()
+    assert opcode == 0x1 and valid == 1
+    assert sum_val == sum(weights), f"Cycle 2: expected {sum(weights)}, got {sum_val}"
+    await spi.cmd_update_and_wait(sign=0)
+    weights = [w - 1 for w in weights]
+
+    # Cycle 3: predict (back to initial), increment again
+    for idx in indices:
+        await spi.cmd_add_weight(idx)
+    opcode, valid, sum_val = await spi.cmd_read_poll()
+    assert opcode == 0x1 and valid == 1
+    assert sum_val == sum(weights), f"Cycle 3: expected {sum(weights)}, got {sum_val}"
+    await spi.cmd_update_and_wait(sign=1)
+    weights = [w + 1 for w in weights]
+
+    # Cycle 4: predict with incremented weights, decrement
+    for idx in indices:
+        await spi.cmd_add_weight(idx)
+    opcode, valid, sum_val = await spi.cmd_read_poll()
+    assert opcode == 0x1 and valid == 1
+    assert sum_val == sum(weights), f"Cycle 4: expected {sum(weights)}, got {sum_val}"
+    await spi.cmd_update_and_wait(sign=0)
+    weights = [w - 1 for w in weights]
+
+    # Verify final RAM contents match initial values
+    for slot, (idx, exp) in enumerate(zip(indices, weights)):
+        val = to_signed_8(get_ram(dut, ram_addr(slot, idx)))
+        assert val == exp, f"Weight {slot}: expected {exp}, got {val}"
+
+
+@cocotb.test()
+async def test_multi_cycle_all_weights_alternating(dut):
+    """Six cycles alternating inc/dec with all MAX_WEIGHTS, different indices."""
+    spi = await start_clocks(dut)
+
+    indices = [0x05, 0x1A, 0x2F, 0x44, 0x59, 0x6E, 0x83, 0x98][:MAX_WEIGHTS]
+    initial = [0, 0, 0, 0, 0, 0, 0, 0][:MAX_WEIGHTS]
+
+    for slot, (idx, w) in enumerate(zip(indices, initial)):
+        set_ram(dut, ram_addr(slot, idx), to_unsigned_8(w))
+
+    weights = list(initial)
+
+    for cycle in range(6):
+        sign = cycle % 2  # 0, 1, 0, 1, 0, 1
+
+        for idx in indices:
+            await spi.cmd_add_weight(idx)
+
+        opcode, valid, sum_val = await spi.cmd_read_poll()
+        assert opcode == 0x1 and valid == 1
+        assert sum_val == sum(weights), \
+            f"Cycle {cycle+1}: expected sum {sum(weights)}, got {sum_val}"
+
+        await spi.cmd_update_and_wait(sign=sign)
+        weights = [w + (1 if sign else -1) for w in weights]
+
+    # After 6 cycles (dec, inc, dec, inc, dec, inc): net 0 change
+    for slot, (idx, exp) in enumerate(zip(indices, weights)):
+        val = to_signed_8(get_ram(dut, ram_addr(slot, idx)))
+        assert val == exp, f"Weight {slot}: expected {exp}, got {val}"
+
+
+@cocotb.test()
+async def test_prediction_flips_after_update(dut):
+    """Verify that updates can flip the prediction from taken to not-taken."""
+    spi = await start_clocks(dut)
+
+    indices = [0x10 * (i + 1) for i in range(MAX_WEIGHTS)]
+
+    # Start with small positive weights → sum > 0 → predict taken
+    for slot, idx in enumerate(indices):
+        set_ram(dut, ram_addr(slot, idx), to_unsigned_8(1))
+
+    for idx in indices:
+        await spi.cmd_add_weight(idx)
+    opcode, valid, sum_val = await spi.cmd_read_poll()
+    assert opcode == 0x1 and valid == 1
+    assert sum_val == MAX_WEIGHTS, f"Expected {MAX_WEIGHTS}, got {sum_val}"
+    assert sum_val > 0, "Initial prediction should be taken (positive sum)"
+
+    # Decrement repeatedly until sum flips negative
+    for cycle in range(MAX_WEIGHTS + 1):
+        await spi.cmd_update_and_wait(sign=0)
+
+        for idx in indices:
+            await spi.cmd_add_weight(idx)
+        opcode, valid, sum_val = await spi.cmd_read_poll()
+        assert opcode == 0x1 and valid == 1
+
+        expected = MAX_WEIGHTS - (cycle + 1) * MAX_WEIGHTS
+        # Each update decrements all MAX_WEIGHTS weights by 1,
+        # so sum decreases by MAX_WEIGHTS per cycle
+        expected_sum = MAX_WEIGHTS + (cycle + 1) * (-MAX_WEIGHTS)
+        dut._log.info(f"Cycle {cycle+1}: sum={sum_val} (expected {expected_sum})")
+        assert sum_val == expected_sum, \
+            f"Cycle {cycle+1}: expected {expected_sum}, got {sum_val}"
+
+        if sum_val < 0:
+            dut._log.info(f"Prediction flipped to not-taken after {cycle+1} decrements")
+            break
+    else:
+        assert False, "Prediction never flipped to not-taken"
+
+    # Now increment back to flip prediction to taken again
+    for cycle in range(3):
+        await spi.cmd_update_and_wait(sign=1)
+
+        for idx in indices:
+            await spi.cmd_add_weight(idx)
+        opcode, valid, sum_val = await spi.cmd_read_poll()
+        assert opcode == 0x1 and valid == 1
+        dut._log.info(f"Inc cycle {cycle+1}: sum={sum_val}")
+
+    assert sum_val > 0, f"Expected positive sum after incrementing back, got {sum_val}"
+    dut._log.info("Prediction flipped back to taken")
